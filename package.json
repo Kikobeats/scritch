@@ -1,6 +1,6 @@
 {
   "name": "@kikobeats/scritch",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "A small CLI to help you write sharable scripts for your team",
   "keywords": [
     "bash",
