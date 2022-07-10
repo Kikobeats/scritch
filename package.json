@@ -37,7 +37,7 @@
     "meow": "9",
     "picocolors": "~1.0.0",
     "read-pkg-up": "7",
-    "strip-ansi-stream": "^1.0.0",
-    "supports-color": "^7.0.0"
+    "strip-ansi-stream": "1",
+    "supports-color": "8"
   }
 }
