@@ -2,10 +2,10 @@
 
 const stripAnsiStream = require('strip-ansi-stream')
 const supportsColor = require('supports-color')
-const readPkgUp = require('read-pkg-up')
 const isExecutable = require('executable')
-const crossSpawn = require('cross-spawn')
 const { readdir } = require('fs/promises')
+const readPkgUp = require('read-pkg-up')
+const crossSpawn = require('cross-spawn')
 const { gray } = require('picocolors')
 const path = require('path')
 const meow = require('meow')
