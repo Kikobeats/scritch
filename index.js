@@ -127,7 +127,4 @@ const readdirDeep = async dir => {
 }
 
 module.exports = (...args) =>
-  scritch(...args).catch(error => {
-    console.error(error)
-    process.exit(1)
-  })
+  scritch(...args).catch(error => console.error(error) || process.exit(1))

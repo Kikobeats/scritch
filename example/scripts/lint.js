@@ -2,10 +2,10 @@
 
 let sleep = ms => new Promise(res => setTimeout(res, ms))
 
-async function main() {
+async function main () {
   let start = Date.now()
 
-  console.log("Linting files...")
+  console.log('Linting files...')
 
   for (let i = 0; i < 10; i++) {
     await sleep(100)
@@ -16,10 +16,7 @@ async function main() {
   let total = end - start
   let rounded = Math.round(total * 1000) / 1000
 
-  console.log(`10 files linted in ${(rounded / 1000)}s.`)
+  console.log(`10 files linted in ${rounded / 1000}s.`)
 }
 
-main().catch(err => {
-  console.error(err)
-  process.exit(1)
-})
+main().catch(error => console.error(error) || process.exit(1))
