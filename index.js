@@ -4,9 +4,9 @@ const stripAnsiStream = require('strip-ansi-stream')
 const supportsColor = require('supports-color')
 const isExecutable = require('executable')
 const { readdir } = require('fs/promises')
+const { styleText } = require('node:util')
 const readPkgUp = require('read-pkg-up')
-const crossSpawn = require('cross-spawn')
-const { gray } = require('picocolors')
+const $ = require('tinyspawn')
 const path = require('path')
 const meow = require('meow')
 
@@ -35,7 +35,7 @@ const scritch = async (dir, { scriptsPath = 'scripts', env = {} } = {}) => {
     const stdoutSupportsColor = supportsColor.stdout
 
     // Spawn matching script
-    const subprocess = crossSpawn(script.filePath, process.argv.slice(3), {
+    const subprocess = $(script.filePath, process.argv.slice(3), {
       cwd: process.cwd(),
       shell: true,
       // only pipe if it does not support color as we lose ability to retain color otherwise
@@ -72,7 +72,6 @@ const getScripts = async scriptsDir => {
     dirent => dirent.name !== path.resolve(scriptsDir, 'index.js')
   )
 
-  // TODO: do in parallel?
   return dirents.reduce((acc, dirent) => {
     const name = dirent.name
       .replace(parentDir, '') // without parent dir
@@ -96,6 +95,8 @@ const isPlainObject = val =>
 
 const binaryName = ({ name, bin }) =>
   isPlainObject(bin) ? Object.keys(bin)[0] : name ? name : 'cli'
+
+const gray = text => styleText('gray', text)
 
 const help = ({ pkg, scripts }) => `
   Usage

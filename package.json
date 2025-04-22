@@ -32,12 +32,11 @@
     "test": "ava"
   },
   "dependencies": {
-    "cross-spawn": "~7.0.3",
     "executable": "~4.1.1",
     "meow": "9",
-    "picocolors": "~1.0.0",
     "read-pkg-up": "7",
     "strip-ansi-stream": "1",
-    "supports-color": "8"
+    "supports-color": "8",
+    "tinyspawn": "~1.5.0"
   }
 }
