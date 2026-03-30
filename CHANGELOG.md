@@ -1,3 +1,4 @@
+## [1.7.1](https://github.com/jamiebuilds/scritch/compare/v1.7.0...v1.7.1) (2026-03-30)
 ## [1.7.0](https://github.com/jamiebuilds/scritch/compare/v1.6.0...v1.7.0) (2026-03-30)
 
 ### Features
