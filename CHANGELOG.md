@@ -1,3 +1,8 @@
+## [1.6.0](https://github.com/jamiebuilds/scritch/compare/v1.5.2...v1.6.0) (2026-03-30)
+
+### Features
+
+* nested commands ([cd82ba0](https://github.com/jamiebuilds/scritch/commit/cd82ba06f9ae9768add884f846e8ccd712f6426e))
 # Changelog
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
