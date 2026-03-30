@@ -18,7 +18,6 @@ const scritch = async (dir, { scriptsPath = 'scripts', env = {} } = {}) => {
   const scriptsDir = path.resolve(dir, scriptsPath)
   const scripts = await getScripts(scriptsDir)
 
-  // Lookup package for CLI
   const { packageJson: pkg, path: pkgPath } = readPkgUp.sync({
     cwd: parentDir,
     normalize: false
@@ -28,17 +27,28 @@ const scritch = async (dir, { scriptsPath = 'scripts', env = {} } = {}) => {
   const pkgNodeModulesBinPath = path.join(pkgRootPath, 'node_modules', '.bin')
 
   const cli = meow({ pkg, help: help({ pkg, scripts }) })
-  const script = scripts.find(script => script.name === cli.input[0])
+
+  let script = null
+  let matchLength = 0
+
+  for (let i = cli.input.length; i >= 1; i--) {
+    const candidate = cli.input.slice(0, i).join('/')
+    const found = scripts.find(s => s.name === candidate)
+    if (found) {
+      script = found
+      matchLength = i
+      break
+    }
+  }
+
   if (!script) return cli.showHelp()
 
   return new Promise(async (resolve, reject) => {
     const stdoutSupportsColor = supportsColor.stdout
 
-    // Spawn matching script
-    const subprocess = $(script.filePath, process.argv.slice(3), {
+    const subprocess = $(script.filePath, process.argv.slice(2 + matchLength), {
       cwd: process.cwd(),
       shell: true,
-      // only pipe if it does not support color as we lose ability to retain color otherwise
       stdio: stdoutSupportsColor ? 'inherit' : 'pipe',
       env: Object.assign(
         {},
@@ -73,19 +83,15 @@ const getScripts = async scriptsDir => {
   )
 
   return dirents.reduce((acc, dirent) => {
+    if (!isExecutable.sync(dirent.name)) return acc
+
     const name = dirent.name
-      .replace(parentDir, '') // without parent dir
-      .replace(/^\//, '') // without relative path slash
-      .replace(path.extname(dirent.name), '') // without extension
-      .replace(/\/index$/, '') // without index file
+      .replace(scriptsDir, '')
+      .replace(/^\//, '')
+      .replace(path.extname(dirent.name), '')
+      .replace(/\/index$/, '')
 
-    const filePath = dirent.name
-
-    if (!isExecutable.sync(filePath)) {
-      throw new Error(`Expected path to be executable: "${filePath}"`)
-    }
-
-    acc.push({ name, filePath })
+    acc.push({ name, filePath: dirent.name })
     return acc
   }, [])
 }
@@ -100,12 +106,12 @@ const gray = text => styleText('gray', text)
 
 const help = ({ pkg, scripts }) => `
   Usage
-    ${gray(`$ ${binaryName(pkg)} <script> [...args]`)}
+    ${gray(`$ ${binaryName(pkg)} <command> [...args]`)}
   
-  Scripts
+  Commands
     ${gray(
       scripts
-        .map((script, index) => `${index === 0 ? '' : '    '}- ${script.name}`)
+        .map((script, index) => `${index === 0 ? '' : '    '}- ${script.name.replace(/\//g, ' ')}`)
         .join('\n')
     )}`
 
@@ -114,7 +120,12 @@ const readdirDeep = async dir => {
   const files = await Promise.all(
     subdirs.map(subdir => {
       subdir.name = path.resolve(dir, subdir.name)
-      return subdir.isDirectory() ? readdirDeep(subdir.name) : subdir
+      if (subdir.isDirectory()) {
+        return path.basename(subdir.name).startsWith('_')
+          ? []
+          : readdirDeep(subdir.name)
+      }
+      return subdir
     })
   )
 
