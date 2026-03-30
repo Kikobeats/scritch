@@ -15,7 +15,9 @@ delete require.cache[__filename]
 const parentDir = path.dirname(module.parent.filename)
 
 const getPromiseWithResolvers = () => {
-  if (typeof Promise.withResolvers === 'function') { return Promise.withResolvers() }
+  if (typeof Promise.withResolvers === 'function') {
+    return Promise.withResolvers()
+  }
 
   let resolvePromise
   let rejectPromise
