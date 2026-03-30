@@ -1,3 +1,8 @@
+## [1.7.0](https://github.com/jamiebuilds/scritch/compare/v1.6.0...v1.7.0) (2026-03-30)
+
+### Features
+
+* better help command ([56357b3](https://github.com/jamiebuilds/scritch/commit/56357b337e140cc64e9a02c91dd285f965a797e6))
 ## [1.6.0](https://github.com/jamiebuilds/scritch/compare/v1.5.2...v1.6.0) (2026-03-30)
 
 ### Features
