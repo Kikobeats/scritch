@@ -14,7 +14,23 @@ const meow = require('meow')
 delete require.cache[__filename]
 const parentDir = path.dirname(module.parent.filename)
 
-const scritch = async (dir, { scriptsPath = 'scripts', env = {} } = {}) => {
+const getPromiseWithResolvers = () => {
+  if (typeof Promise.withResolvers === 'function') { return Promise.withResolvers() }
+
+  let resolvePromise
+  let rejectPromise
+  const promise = new Promise((resolve, reject) => {
+    resolvePromise = resolve
+    rejectPromise = reject
+  })
+
+  return { promise, resolve: resolvePromise, reject: rejectPromise }
+}
+
+const scritch = async (
+  dir,
+  { scriptsPath = 'scripts', env = {}, help: helpTree = null } = {}
+) => {
   const scriptsDir = path.resolve(dir, scriptsPath)
   const scripts = await getScripts(scriptsDir)
 
@@ -26,7 +42,7 @@ const scritch = async (dir, { scriptsPath = 'scripts', env = {} } = {}) => {
   const pkgRootPath = path.dirname(pkgPath)
   const pkgNodeModulesBinPath = path.join(pkgRootPath, 'node_modules', '.bin')
 
-  const cli = meow({ pkg, help: help({ pkg, scripts }) })
+  const cli = meow({ pkg, help: help({ pkg, scripts, helpTree }) })
 
   let script = null
   let matchLength = 0
@@ -43,38 +59,39 @@ const scritch = async (dir, { scriptsPath = 'scripts', env = {} } = {}) => {
 
   if (!script) return cli.showHelp()
 
-  return new Promise(async (resolve, reject) => {
-    const stdoutSupportsColor = supportsColor.stdout
+  const { promise, resolve, reject } = getPromiseWithResolvers()
+  const stdoutSupportsColor = supportsColor.stdout
 
-    const subprocess = $(script.filePath, process.argv.slice(2 + matchLength), {
-      cwd: process.cwd(),
-      shell: true,
-      stdio: stdoutSupportsColor ? 'inherit' : 'pipe',
-      env: Object.assign(
-        {},
-        process.env,
-        {
-          PATH: `${pkgNodeModulesBinPath}:${scriptsDir}:${process.env.PATH}`,
-          SCRITCH_SCRIPT_NAME: script.name,
-          SCRITCH_SCRIPT_PATH: script.filePath,
-          SCRITCH_SCRIPTS_DIR: scriptsDir
-        },
-        env
-      )
-    })
-
-    if (!stdoutSupportsColor) {
-      subprocess.stdout.pipe(stripAnsiStream()).pipe(process.stdout)
-      subprocess.stderr.pipe(stripAnsiStream()).pipe(process.stderr)
-    }
-
-    subprocess.on('error', err => reject(err))
-
-    subprocess.on('close', code => {
-      if (code !== 0) process.exitCode = code
-      resolve()
-    })
+  const subprocess = $(script.filePath, process.argv.slice(2 + matchLength), {
+    cwd: process.cwd(),
+    shell: true,
+    stdio: stdoutSupportsColor ? 'inherit' : 'pipe',
+    env: Object.assign(
+      {},
+      process.env,
+      {
+        PATH: `${pkgNodeModulesBinPath}:${scriptsDir}:${process.env.PATH}`,
+        SCRITCH_SCRIPT_NAME: script.name,
+        SCRITCH_SCRIPT_PATH: script.filePath,
+        SCRITCH_SCRIPTS_DIR: scriptsDir
+      },
+      env
+    )
   })
+
+  if (!stdoutSupportsColor) {
+    subprocess.stdout.pipe(stripAnsiStream()).pipe(process.stdout)
+    subprocess.stderr.pipe(stripAnsiStream()).pipe(process.stderr)
+  }
+
+  subprocess.on('error', err => reject(err))
+
+  subprocess.on('close', code => {
+    if (code !== 0) process.exitCode = code
+    resolve()
+  })
+
+  return promise
 }
 
 const getScripts = async scriptsDir => {
@@ -100,20 +117,195 @@ const isPlainObject = val =>
   typeof val === 'object' && val !== null && !Array.isArray(val)
 
 const binaryName = ({ name, bin }) =>
-  isPlainObject(bin) ? Object.keys(bin)[0] : name ? name : 'cli'
+  isPlainObject(bin) ? Object.keys(bin)[0] : name || 'cli'
 
 const gray = text => styleText('gray', text)
 
-const help = ({ pkg, scripts }) => `
+const dim = text => styleText('dim', text)
+
+const kebabToCamel = s => s.replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+
+const segmentKeys = seg => {
+  const keys = new Set([seg])
+  if (seg.includes('-')) keys.add(kebabToCamel(seg))
+  return [...keys]
+}
+
+const lookupHelpDescription = (tree, segments) => {
+  if (!tree || typeof tree !== 'object' || segments.length === 0) return ''
+
+  let node = tree
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i]
+    const isLast = i === segments.length - 1
+    let next
+
+    for (const key of segmentKeys(seg)) {
+      if (Object.prototype.hasOwnProperty.call(node, key)) {
+        next = node[key]
+        break
+      }
+    }
+
+    if (next === undefined) return ''
+    if (isLast) return typeof next === 'string' ? next : ''
+    if (typeof next !== 'object' || next === null) return ''
+    node = next
+  }
+
+  return ''
+}
+
+const formatCommandLine = (depth, name, description, descStartCol) => {
+  const indent = pad(depth)
+  if (!description) return `${indent}${gray(name)}`
+  const gap = descStartCol > 0 ? descStartCol - indent.length - name.length : 2
+  return `${indent}${gray(name)}${' '.repeat(Math.max(2, gap))}${dim(
+    description
+  )}`
+}
+
+const globalDescStartColumn = rows => {
+  let c = 0
+  for (const r of rows) {
+    if (!r.desc) continue
+    const end = pad(r.depth).length + r.name.length + 2
+    if (end > c) c = end
+  }
+  return c
+}
+
+const sortStrings = strings => [...strings].sort((a, b) => a.localeCompare(b))
+
+const emptyNode = () => ({
+  leaves: [],
+  sub: Object.create(null)
+})
+
+const addPath = (node, parts) => {
+  if (parts.length === 1) {
+    node.leaves.push(parts[0])
+    return
+  }
+  const [head, ...rest] = parts
+  if (!node.sub[head]) node.sub[head] = emptyNode()
+  addPath(node.sub[head], rest)
+}
+
+const pad = depth => '    ' + '  '.repeat(depth)
+
+const buildTopItems = scripts => {
+  const root = emptyNode()
+  for (const { name } of scripts) {
+    addPath(root, name.split('/'))
+  }
+
+  const topItems = []
+  for (const leaf of sortStrings(root.leaves)) {
+    topItems.push({ kind: 'leaf', name: leaf })
+  }
+  for (const key of sortStrings(Object.keys(root.sub))) {
+    topItems.push({ kind: 'group', name: key, node: root.sub[key] })
+  }
+  topItems.sort((a, b) => a.name.localeCompare(b.name))
+
+  return topItems
+}
+
+const collectHelpRows = (topItems, helpTree) => {
+  const rows = []
+
+  const walkNode = (node, depth, pathPrefix) => {
+    for (const leaf of sortStrings(node.leaves)) {
+      rows.push({
+        depth,
+        name: leaf,
+        desc: lookupHelpDescription(helpTree, [...pathPrefix, leaf])
+      })
+    }
+    for (const key of sortStrings(Object.keys(node.sub))) {
+      rows.push({
+        depth,
+        name: key,
+        desc: lookupHelpDescription(helpTree, [...pathPrefix, key])
+      })
+      walkNode(node.sub[key], depth + 1, [...pathPrefix, key])
+    }
+  }
+
+  for (const item of topItems) {
+    if (item.kind === 'leaf') {
+      rows.push({
+        depth: 0,
+        name: item.name,
+        desc: lookupHelpDescription(helpTree, [item.name])
+      })
+    } else {
+      rows.push({
+        depth: 0,
+        name: item.name,
+        desc: lookupHelpDescription(helpTree, [item.name])
+      })
+      walkNode(item.node, 1, [item.name])
+    }
+  }
+
+  return rows
+}
+
+const formatGroupBody = (node, depth, pathPrefix, helpTree, descStartCol) => {
+  const lines = []
+  for (const leaf of sortStrings(node.leaves)) {
+    const segments = [...pathPrefix, leaf]
+    const desc = lookupHelpDescription(helpTree, segments)
+    lines.push(formatCommandLine(depth, leaf, desc, descStartCol))
+  }
+  for (const key of sortStrings(Object.keys(node.sub))) {
+    const segments = [...pathPrefix, key]
+    const groupDesc = lookupHelpDescription(helpTree, segments)
+    lines.push(formatCommandLine(depth, key, groupDesc, descStartCol))
+    lines.push(
+      ...formatGroupBody(
+        node.sub[key],
+        depth + 1,
+        [...pathPrefix, key],
+        helpTree,
+        descStartCol
+      )
+    )
+  }
+  return lines
+}
+
+const formatGroupedCommands = (scripts, helpTree) => {
+  const topItems = buildTopItems(scripts)
+  const rows = collectHelpRows(topItems, helpTree)
+  const descStartCol = globalDescStartColumn(rows)
+
+  const lines = []
+  for (let i = 0; i < topItems.length; i++) {
+    const item = topItems[i]
+    if (item.kind === 'leaf') {
+      const desc = lookupHelpDescription(helpTree, [item.name])
+      lines.push(formatCommandLine(0, item.name, desc, descStartCol))
+    } else {
+      const desc = lookupHelpDescription(helpTree, [item.name])
+      lines.push(formatCommandLine(0, item.name, desc, descStartCol))
+      lines.push(
+        ...formatGroupBody(item.node, 1, [item.name], helpTree, descStartCol)
+      )
+    }
+    if (i < topItems.length - 1) lines.push('')
+  }
+  return lines.join('\n')
+}
+
+const help = ({ pkg, scripts, helpTree }) => `
   Usage
     ${gray(`$ ${binaryName(pkg)} <command> [...args]`)}
   
   Commands
-    ${gray(
-      scripts
-        .map((script, index) => `${index === 0 ? '' : '    '}- ${script.name.replace(/\//g, ' ')}`)
-        .join('\n')
-    )}`
+${formatGroupedCommands(scripts, helpTree)}`
 
 const readdirDeep = async dir => {
   const subdirs = await readdir(dir, { withFileTypes: true })

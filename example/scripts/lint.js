@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 
-let sleep = ms => new Promise(res => setTimeout(res, ms))
+const { setTimeout } = require('node:timers/promises')
 
 async function main () {
-  let start = Date.now()
+  const start = Date.now()
 
   console.log('Linting files...')
 
   for (let i = 0; i < 10; i++) {
-    await sleep(100)
+    await setTimeout(100)
     console.log(`- File ${i} linted.`)
   }
 
-  let end = Date.now()
-  let total = end - start
-  let rounded = Math.round(total * 1000) / 1000
+  const end = Date.now()
+  const total = end - start
+  const rounded = Math.round(total * 1000) / 1000
 
   console.log(`10 files linted in ${rounded / 1000}s.`)
 }
