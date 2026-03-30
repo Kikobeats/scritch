@@ -2,7 +2,7 @@
   "name": "@kikobeats/scritch",
   "description": "A small CLI to help you write sharable scripts for your team",
   "homepage": "https://github.com/jamiebuilds/scritch#readme",
-  "version": "1.7.2",
+  "version": "1.7.3",
   "main": "index.js",
   "author": {
     "email": "me@thejameskyle.com",
