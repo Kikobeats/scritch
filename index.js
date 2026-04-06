@@ -91,13 +91,12 @@ ${formatGroupedCommands(subScripts, subHelpTree)}
     scriptArgs.includes('--help')
 
   if (wantsHelp) {
-    try {
-      const mod = require(script.filePath)
-      if (mod && typeof mod.printHelp === 'function') {
-        mod.printHelp()
-        return
-      }
-    } catch (_) {}
+    const segments = script.name.split('/')
+    const helpEntry = resolveHelpSubTree(helpTree, segments)
+    if (helpEntry && typeof helpEntry === 'object' && helpEntry.commands) {
+      console.log(formatSubcommandHelp(binaryName(pkg), script.name, helpEntry))
+      return
+    }
   }
 
   const { promise, resolve, reject } = getPromiseWithResolvers()
@@ -164,6 +163,32 @@ const gray = text => styleText('gray', text)
 
 const dim = text => styleText('dim', text)
 
+const formatSubcommandHelp = (bin, scriptName, helpObj) => {
+  const { commands = {}, examples = [] } = helpObj
+  const entries = Object.entries(commands)
+  if (entries.length === 0) return ''
+  const maxLen = Math.max(...entries.map(([name]) => name.length))
+  const cmdLines = entries
+    .map(([name, desc]) => `    ${gray(name.padEnd(maxLen))}  ${dim(desc)}`)
+    .join('\n')
+  const usage = scriptName.replace(/\//g, ' ')
+  let output = `
+  Usage
+    ${gray(`$ ${bin} ${usage} <command> [...args]`)}
+
+  Commands
+${cmdLines}
+`
+  if (examples.length > 0) {
+    const exLines = examples.map(ex => `    ${gray(`$ ${ex}`)}`).join('\n')
+    output += `
+  Examples
+${exLines}
+`
+  }
+  return output
+}
+
 const kebabToCamel = s => s.replace(/-([a-z])/g, (_, c) => c.toUpperCase())
 
 const segmentKeys = seg => {
@@ -208,7 +233,13 @@ const lookupHelpDescription = (tree, segments) => {
     }
 
     if (next === undefined) return ''
-    if (isLast) return typeof next === 'string' ? next : ''
+    if (isLast) {
+      if (typeof next === 'string') return next
+      if (isPlainObject(next) && typeof next.description === 'string') {
+        return next.description
+      }
+      return ''
+    }
     if (typeof next !== 'object' || next === null) return ''
     node = next
   }
