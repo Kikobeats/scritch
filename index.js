@@ -59,7 +59,46 @@ const scritch = async (
     }
   }
 
-  if (!script) return cli.showHelp()
+  if (!script) {
+    const prefix = cli.input.join('/')
+    const groupScripts = scripts.filter(s => s.name.startsWith(prefix + '/'))
+
+    if (groupScripts.length > 0) {
+      const subScripts = groupScripts.map(s => ({
+        ...s,
+        name: s.name.slice(prefix.length + 1)
+      }))
+      const subHelpTree = resolveHelpSubTree(helpTree, cli.input)
+      const groupUsage = prefix.replace(/\//g, ' ')
+
+      console.log(`
+  Usage
+    ${gray(`$ ${binaryName(pkg)} ${groupUsage} <command> [...args]`)}
+
+  Commands
+${formatGroupedCommands(subScripts, subHelpTree)}
+`)
+      return
+    }
+
+    return cli.showHelp()
+  }
+
+  const scriptArgs = process.argv.slice(2 + matchLength)
+  const wantsHelp =
+    scriptArgs.length === 0 ||
+    scriptArgs.includes('-h') ||
+    scriptArgs.includes('--help')
+
+  if (wantsHelp) {
+    try {
+      const mod = require(script.filePath)
+      if (mod && typeof mod.printHelp === 'function') {
+        mod.printHelp()
+        return
+      }
+    } catch (_) {}
+  }
 
   const { promise, resolve, reject } = getPromiseWithResolvers()
   const stdoutSupportsColor = supportsColor.stdout
@@ -131,6 +170,25 @@ const segmentKeys = seg => {
   const keys = new Set([seg])
   if (seg.includes('-')) keys.add(kebabToCamel(seg))
   return [...keys]
+}
+
+const resolveHelpSubTree = (tree, segments) => {
+  if (!tree || typeof tree !== 'object') return null
+  let node = tree
+  for (const seg of segments) {
+    let next
+    for (const key of segmentKeys(seg)) {
+      if (Object.prototype.hasOwnProperty.call(node, key)) {
+        next = node[key]
+        break
+      }
+    }
+    if (next === undefined || typeof next !== 'object' || next === null) {
+      return null
+    }
+    node = next
+  }
+  return node
 }
 
 const lookupHelpDescription = (tree, segments) => {
@@ -297,7 +355,10 @@ const formatGroupedCommands = (scripts, helpTree) => {
         ...formatGroupBody(item.node, 1, [item.name], helpTree, descStartCol)
       )
     }
-    if (i < topItems.length - 1) lines.push('')
+    if (i < topItems.length - 1) {
+      const next = topItems[i + 1]
+      if (item.kind === 'group' || next.kind === 'group') lines.push('')
+    }
   }
   return lines.join('\n')
 }
