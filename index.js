@@ -90,6 +90,16 @@ ${formatGroupedCommands(subScripts, subHelpTree)}
     scriptArgs.includes('-h') ||
     scriptArgs.includes('--help')
 
+  const explicitHelp = scriptArgs.includes('-h') || scriptArgs.includes('--help')
+
+  if (explicitHelp) {
+    const scriptHelp = tryScriptHelp(script, binaryName(pkg))
+    if (scriptHelp) {
+      console.log(scriptHelp)
+      return
+    }
+  }
+
   if (wantsHelp) {
     const segments = script.name.split('/')
     const helpEntry = resolveHelpSubTree(helpTree, segments)
@@ -187,6 +197,78 @@ ${exLines}
 `
   }
   return output
+}
+
+const tryScriptHelp = (script, bin) => {
+  try {
+    const mod = require(script.filePath)
+    if (typeof mod.help !== 'function') return null
+    const raw = mod.help()
+    if (typeof raw !== 'string' || !raw.trim()) return null
+    return formatScriptHelp(bin, script.name, raw)
+  } catch {
+    return null
+  }
+}
+
+const formatScriptHelp = (bin, scriptName, body) => {
+  const usage = scriptName.replace(/\//g, ' ')
+  const lines = body.split('\n')
+
+  const formatted = lines.map(line => {
+    const stripped = line.trimStart()
+
+    if (/^--\S/.test(stripped)) {
+      const match = stripped.match(/^(--\S+(?:,\s*-\S+)?(?:\s+<[^>]+>)?)\s{2,}(.+)$/)
+      if (match) {
+        return { kind: 'option', flag: match[1], desc: match[2] }
+      }
+    }
+
+    if (/^\S/.test(stripped) && stripped.endsWith(':')) {
+      return { kind: 'heading', text: stripped.slice(0, -1) }
+    }
+
+    return { kind: 'text', text: stripped }
+  })
+
+  const options = formatted.filter(l => l.kind === 'option')
+  const flagCol = options.length > 0
+    ? Math.max(...options.map(o => o.flag.length)) + 2
+    : 0
+
+  const firstSectionIdx = formatted.findIndex(l => l.kind !== 'text')
+  const preamble = (firstSectionIdx === -1 ? formatted : formatted.slice(0, firstSectionIdx))
+    .filter(l => l.text)
+  const rest = firstSectionIdx === -1 ? [] : formatted.slice(firstSectionIdx)
+
+  const out = []
+  if (preamble.length > 0) {
+    out.push('')
+    for (const line of preamble) out.push(`  ${dim(line.text)}`)
+  }
+  out.push(`\n  Usage\n    ${gray(`$ ${bin} ${usage} [options]`)}`)
+
+  let currentSection = null
+
+  for (const line of rest) {
+    if (line.kind === 'heading') {
+      currentSection = line.text
+      out.push(`\n  ${line.text}`)
+      continue
+    }
+    if (line.kind === 'option') {
+      const gap = flagCol - line.flag.length
+      out.push(`    ${gray(line.flag)}${' '.repeat(Math.max(2, gap))}${dim(line.desc)}`)
+      continue
+    }
+    if (line.kind === 'text' && line.text) {
+      out.push(`    ${dim(line.text)}`)
+    }
+  }
+
+  out.push('')
+  return out.join('\n')
 }
 
 const kebabToCamel = s => s.replace(/-([a-z])/g, (_, c) => c.toUpperCase())
