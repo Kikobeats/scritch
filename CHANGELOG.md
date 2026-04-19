@@ -1,3 +1,4 @@
+## [1.7.6](https://github.com/jamiebuilds/scritch/compare/v1.7.5...v1.7.6) (2026-04-19)
 ## [1.7.5](https://github.com/jamiebuilds/scritch/compare/v1.7.4...v1.7.5) (2026-04-06)
 ## [1.7.4](https://github.com/jamiebuilds/scritch/compare/v1.7.3...v1.7.4) (2026-04-06)
 ## [1.7.3](https://github.com/jamiebuilds/scritch/compare/v1.7.1...v1.7.3) (2026-03-30)
