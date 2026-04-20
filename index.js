@@ -121,6 +121,7 @@ ${formatGroupedCommands(subScripts, subHelpTree)}
       process.env,
       {
         PATH: `${pkgNodeModulesBinPath}:${scriptsDir}:${process.env.PATH}`,
+        SCRITCH_BIN_NAME: binaryName(pkg),
         SCRITCH_SCRIPT_NAME: script.name,
         SCRITCH_SCRIPT_PATH: script.filePath,
         SCRITCH_SCRIPTS_DIR: scriptsDir
@@ -128,6 +129,8 @@ ${formatGroupedCommands(subScripts, subHelpTree)}
       env
     )
   })
+
+  subprocess.catch(() => {})
 
   if (!stdoutSupportsColor) {
     subprocess.stdout.pipe(stripAnsiStream()).pipe(process.stdout)
@@ -506,5 +509,9 @@ const readdirDeep = async dir => {
     })
 }
 
-module.exports = (...args) =>
+const main = (...args) =>
   scritch(...args).catch(error => console.error(error) || process.exit(1))
+
+main.formatHelp = formatScriptHelp
+
+module.exports = main
