@@ -112,9 +112,8 @@ ${formatGroupedCommands(subScripts, subHelpTree)}
   const { promise, resolve, reject } = getPromiseWithResolvers()
   const stdoutSupportsColor = supportsColor.stdout
 
-  const subprocess = $(script.filePath, process.argv.slice(2 + matchLength), {
+  const subprocess = $(process.execPath, [script.filePath, ...process.argv.slice(2 + matchLength)], {
     cwd: process.cwd(),
-    shell: true,
     stdio: stdoutSupportsColor ? 'inherit' : 'pipe',
     env: Object.assign(
       {},
