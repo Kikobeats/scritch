@@ -1,3 +1,8 @@
+## [1.7.8](https://github.com/jamiebuilds/scritch/compare/v1.7.7...v1.7.8) (2026-05-25)
+
+### Bug Fixes
+
+* node warning ([ce6be21](https://github.com/jamiebuilds/scritch/commit/ce6be21779db688e4f84bf953ab0df1adbdbc951))
 ## [1.7.7](https://github.com/jamiebuilds/scritch/compare/v1.7.6...v1.7.7) (2026-04-20)
 ## [1.7.6](https://github.com/jamiebuilds/scritch/compare/v1.7.5...v1.7.6) (2026-04-19)
 ## [1.7.5](https://github.com/jamiebuilds/scritch/compare/v1.7.4...v1.7.5) (2026-04-06)
