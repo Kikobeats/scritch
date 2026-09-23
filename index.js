@@ -5,8 +5,8 @@ const supportsColor = require('supports-color')
 const isExecutable = require('executable')
 const { readdir } = require('fs/promises')
 const { styleText } = require('node:util')
+const { spawn } = require('child_process')
 const readPkgUp = require('read-pkg-up')
-const $ = require('tinyspawn')
 const path = require('path')
 const meow = require('meow')
 
@@ -112,7 +112,7 @@ ${formatGroupedCommands(subScripts, subHelpTree)}
   const { promise, resolve, reject } = getPromiseWithResolvers()
   const stdoutSupportsColor = supportsColor.stdout
 
-  const subprocess = $(process.execPath, [script.filePath, ...process.argv.slice(2 + matchLength)], {
+  const subprocess = spawn(script.filePath, scriptArgs, {
     cwd: process.cwd(),
     stdio: stdoutSupportsColor ? 'inherit' : 'pipe',
     env: Object.assign(
@@ -128,8 +128,6 @@ ${formatGroupedCommands(subScripts, subHelpTree)}
       env
     )
   })
-
-  subprocess.catch(() => {})
 
   if (!stdoutSupportsColor) {
     subprocess.stdout.pipe(stripAnsiStream()).pipe(process.stdout)
@@ -251,11 +249,8 @@ const formatScriptHelp = (bin, scriptName, body) => {
   }
   out.push(`\n  Usage\n    ${gray(`$ ${bin} ${usage} [options]`)}`)
 
-  let currentSection = null
-
   for (const line of rest) {
     if (line.kind === 'heading') {
-      currentSection = line.text
       out.push(`\n  ${line.text}`)
       continue
     }
